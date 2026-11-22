@@ -22,7 +22,7 @@ jobs:
       - name: Build ${{ matrix.target }}
         run: |
           mkdir -p out/renders
-          xvfb-run -a -s "-screen 0 1920x1440x24" python -u build_${{ matrix.target }}.py 2>&1 | tee out/${{ matrix.target }}_run.log
+          CAD_SIMPLE_GL=1 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1920x1440x24 +extension GLX" python -u build_${{ matrix.target }}.py 2>&1 | tee out/${{ matrix.target }}_run.log
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}

@@ -129,70 +129,76 @@ def box(x0, x1, y0, y1, z0, z1):
 
 
 # ------------------------------------------------------------------ 3. case
-shell = rbox(OW, OH, Z_RIM - Z_BACK, 3.0 + CLR + WALL, Z_BACK)
-shell = shell.cut(rbox(IW, IH, Z_RIM - FLOOR_TOP + 1, 3.0 + CLR, FLOOR_TOP))
-try:
-    shell = shell.faces("<Z").edges().fillet(1.5)
-    shell = shell.faces(">Z").chamfer(0.4)
-except Exception as e:
-    say("edge rounding skipped:", e)
-
-for x, y, _ in standoffs:                             # bosses up to the board's own M2.5 standoffs
-    shell = shell.union(cyl(6.5, ST_BOTTOM - FLOOR_TOP + 0.01, (x, y, FLOOR_TOP - 0.01)))
-    shell = shell.cut(cyl(2.8, ST_BOTTOM - Z_BACK + 2, (x, y, Z_BACK - 1)))
-    shell = shell.cut(cyl(5.0, 1.8, (x, y, Z_BACK - 0.01)))
-
-
-def pocket(y, body, slot_z):
-    dx, wy, hz = body
-    x0 = XI - dx - 1.6
-    p = box(x0, XI + 0.01, y - wy / 2 - 1.2, y + wy / 2 + 1.2, FLOOR_TOP - 0.01, slot_z + hz / 2)
-    p = p.cut(box(XI - dx - 0.1, XI + 0.2, y - wy / 2 - 0.15, y + wy / 2 + 0.15, slot_z - hz / 2, slot_z + hz))
-    p = p.cut(box(x0 - 1, x0 + 1.7, y - 2, y + 2, slot_z - hz / 2 + 0.8, slot_z + hz))   # legs / wires
-    return p
-
-
-for y in keys.values():
-    shell = shell.union(pocket(y, TACT, KEY_Z)).cut(cyl(4.0, WALL + 2, (XI - 1, y, KEY_Z), (1, 0, 0)))
-shell = shell.union(pocket(SLIDE_Y, SLIDE, KEY_Z)).cut(box(XI - 1, XI + WALL + 1, SLIDE_Y - 2.15, SLIDE_Y + 2.15, KEY_Z - 1.2, KEY_Z + 1.2))
-PWR_Y, PWR_Z = (pwr.ymin + pwr.ymax) / 2, (pwr.zmin + pwr.zmax) / 2
-shell = shell.cut(cyl(3.8, WALL + 2, (XI - 1, PWR_Y, PWR_Z), (1, 0, 0)))
-
-# speaker frame + grille, battery corner stops
+RENDER_ONLY = bool(os.environ.get("RENDER_ONLY"))
 sx0, sx1, sy0, sy1 = SPK_R
-fr = box(sx0 - 1.2, sx1 + 1.2, sy0 - 1.2, sy1 + 1.2, FLOOR_TOP - 0.01, FLOOR_TOP + 4).cut(box(sx0, sx1, sy0, sy1, FLOOR_TOP - 1, FLOOR_TOP + 6))
-fr = fr.cut(box((sx0 + sx1) / 2 - 3, (sx0 + sx1) / 2 + 3, sy1 - 0.5, sy1 + 2, FLOOR_TOP + 1, FLOOR_TOP + 6))
-shell = shell.union(fr)
-grille, x = [], sx0 + 2.5
-while x <= sx1 - 2.5:
-    y = sy0 + 2.5
-    while y <= sy1 - 2.5:
-        grille.append(cq.Solid.makeCylinder(0.8, FLOOR + 2, cq.Vector(x, y, Z_BACK - 1)))
-        y += 3.0
-    x += 3.0
-shell = shell.cut(cq.Workplane("XY").add(cq.Compound.makeCompound(grille)))
-for cx_, cy_, sx, sy in ((BX0, BY0, 1, 1), (BX1, BY0, -1, 1), (BX0, BY1, 1, -1), (BX1, BY1, -1, -1)):
-    L, f = 6.0, 1.2
-    xa = cx_ - f if sx > 0 else cx_ - L + f
-    ya = cy_ - f if sy > 0 else cy_
-    shell = shell.union(box(xa, xa + L, ya, ya + f, FLOOR_TOP - 0.01, FLOOR_TOP + 2.5))
-    xb = cx_ - f if sx > 0 else cx_
-    yb = cy_ - f if sy > 0 else cy_ - L + f
-    shell = shell.union(box(xb, xb + f, yb, yb + L, FLOOR_TOP - 0.01, FLOOR_TOP + 2.5))
+PWR_Y, PWR_Z = (pwr.ymin + pwr.ymax) / 2, (pwr.zmin + pwr.zmax) / 2
+if RENDER_ONLY:
+    case = cq.importers.importStep(os.path.join(OUT, "mvp1_case.step"))
+else:
+    shell = rbox(OW, OH, Z_RIM - Z_BACK, 3.0 + CLR + WALL, Z_BACK)
+    shell = shell.cut(rbox(IW, IH, Z_RIM - FLOOR_TOP + 1, 3.0 + CLR, FLOOR_TOP))
+    try:
+        shell = shell.faces("<Z").edges().fillet(1.5)
+        shell = shell.faces(">Z").chamfer(0.4)
+    except Exception as e:
+        say("edge rounding skipped:", e)
 
-# openings: USB-C (UART: charge + flash), charge LED; OTG port and microSD stay sealed
-ux, uz = (usb_uart.xmin + usb_uart.xmax) / 2, (usb_uart.zmin + usb_uart.zmax) / 2
-usb_cut = box(ux - 6.0, ux + 6.0, -OH / 2 - 1, -IH / 2 + 1, uz - 3.25, uz + 3.25).edges("|Y").fillet(2.4)
-shell = shell.cut(usb_cut)
-shell = shell.cut(cyl(2.0, WALL + 2, ((led.xmin + led.xmax) / 2, -IH / 2 + 1, (led.zmin + led.zmax) / 2), (0, -1, 0)))
+    for x, y, _ in standoffs:                             # bosses up to the board's own M2.5 standoffs
+        shell = shell.union(cyl(6.5, ST_BOTTOM - FLOOR_TOP + 0.01, (x, y, FLOOR_TOP - 0.01)))
+        shell = shell.cut(cyl(2.8, ST_BOTTOM - Z_BACK + 2, (x, y, Z_BACK - 1)))
+        shell = shell.cut(cyl(5.0, 1.8, (x, y, Z_BACK - 0.01)))
 
-try:                                                  # model name on the back, reads from behind
-    tp = cq.Plane(origin=(0, 6, Z_BACK), xDir=(-1, 0, 0), normal=(0, 0, -1))
-    txt = cq.Workplane(tp).text("TamilDict MVP-1", 5.5, -0.6, combine=False, kind="bold", halign="center", valign="center")
-    shell = shell.cut(txt)
-except Exception as e:
-    say("back lettering skipped:", e)
-case = shell
+
+    def pocket(y, body, slot_z):
+        dx, wy, hz = body
+        x0 = XI - dx - 1.6
+        p = box(x0, XI + 0.01, y - wy / 2 - 1.2, y + wy / 2 + 1.2, FLOOR_TOP - 0.01, slot_z + hz / 2)
+        p = p.cut(box(XI - dx - 0.1, XI + 0.2, y - wy / 2 - 0.15, y + wy / 2 + 0.15, slot_z - hz / 2, slot_z + hz))
+        p = p.cut(box(x0 - 1, x0 + 1.7, y - 2, y + 2, slot_z - hz / 2 + 0.8, slot_z + hz))   # legs / wires
+        return p
+
+
+    for y in keys.values():
+        shell = shell.union(pocket(y, TACT, KEY_Z)).cut(cyl(4.0, WALL + 2, (XI - 1, y, KEY_Z), (1, 0, 0)))
+    shell = shell.union(pocket(SLIDE_Y, SLIDE, KEY_Z)).cut(box(XI - 1, XI + WALL + 1, SLIDE_Y - 2.15, SLIDE_Y + 2.15, KEY_Z - 1.2, KEY_Z + 1.2))
+    PWR_Y, PWR_Z = (pwr.ymin + pwr.ymax) / 2, (pwr.zmin + pwr.zmax) / 2
+    shell = shell.cut(cyl(3.8, WALL + 2, (XI - 1, PWR_Y, PWR_Z), (1, 0, 0)))
+
+    # speaker frame + grille, battery corner stops
+    sx0, sx1, sy0, sy1 = SPK_R
+    fr = box(sx0 - 1.2, sx1 + 1.2, sy0 - 1.2, sy1 + 1.2, FLOOR_TOP - 0.01, FLOOR_TOP + 4).cut(box(sx0, sx1, sy0, sy1, FLOOR_TOP - 1, FLOOR_TOP + 6))
+    fr = fr.cut(box((sx0 + sx1) / 2 - 3, (sx0 + sx1) / 2 + 3, sy1 - 0.5, sy1 + 2, FLOOR_TOP + 1, FLOOR_TOP + 6))
+    shell = shell.union(fr)
+    grille, x = [], sx0 + 2.5
+    while x <= sx1 - 2.5:
+        y = sy0 + 2.5
+        while y <= sy1 - 2.5:
+            grille.append(cq.Solid.makeCylinder(0.8, FLOOR + 2, cq.Vector(x, y, Z_BACK - 1)))
+            y += 3.0
+        x += 3.0
+    shell = shell.cut(cq.Workplane("XY").add(cq.Compound.makeCompound(grille)))
+    for cx_, cy_, sx, sy in ((BX0, BY0, 1, 1), (BX1, BY0, -1, 1), (BX0, BY1, 1, -1), (BX1, BY1, -1, -1)):
+        L, f = 6.0, 1.2
+        xa = cx_ - f if sx > 0 else cx_ - L + f
+        ya = cy_ - f if sy > 0 else cy_
+        shell = shell.union(box(xa, xa + L, ya, ya + f, FLOOR_TOP - 0.01, FLOOR_TOP + 2.5))
+        xb = cx_ - f if sx > 0 else cx_
+        yb = cy_ - f if sy > 0 else cy_ - L + f
+        shell = shell.union(box(xb, xb + f, yb, yb + L, FLOOR_TOP - 0.01, FLOOR_TOP + 2.5))
+
+    # openings: USB-C (UART: charge + flash), charge LED; OTG port and microSD stay sealed
+    ux, uz = (usb_uart.xmin + usb_uart.xmax) / 2, (usb_uart.zmin + usb_uart.zmax) / 2
+    usb_cut = box(ux - 6.0, ux + 6.0, -OH / 2 - 1, -IH / 2 + 1, uz - 3.25, uz + 3.25).edges("|Y").fillet(2.4)
+    shell = shell.cut(usb_cut)
+    shell = shell.cut(cyl(2.0, WALL + 2, ((led.xmin + led.xmax) / 2, -IH / 2 + 1, (led.zmin + led.zmax) / 2), (0, -1, 0)))
+
+    try:                                                  # model name on the back, reads from behind
+        tp = cq.Plane(origin=(0, 6, Z_BACK), xDir=(-1, 0, 0), normal=(0, 0, -1))
+        txt = cq.Workplane(tp).text("TamilDict MVP-1", 5.5, -0.6, combine=False, kind="bold", halign="center", valign="center")
+        shell = shell.cut(txt)
+    except Exception as e:
+        say("back lettering skipped:", e)
+    case = shell
 say(f"case built ({time.time()-T0:.0f}s), volume {case.val().Volume()/1000:.1f} cm^3")
 
 # ------------------------------------------------------------------ 4. added parts
@@ -248,6 +254,8 @@ wire_names.append("battery to BAT")
 say(f"parts + {len(wires)} wires built ({time.time()-T0:.0f}s)")
 
 # ------------------------------------------------------------------ 5. interference check
+if not RENDER_ONLY:
+  exec(compile(r'''
 named = [("case", case), ("battery", battery), ("speaker", speaker), ("tactile switches", switches), ("slide switch", slide),
          ("POWER rod", rod), ("screws", screws), ("header plug", plug)] + [(f"wire: {n}", w) for n, w in zip(wire_names, wires)]
 hits = interference(named, module)
@@ -283,6 +291,8 @@ wcols = [(0.85, 0.15, 0.15), (0.15, 0.45, 0.85), (0.95, 0.75, 0.1), (0.2, 0.7, 0
 parts += [(f"wire_{i}", w, wcols[i % len(wcols)]) for i, w in enumerate(wires)]
 export_assembly(parts, os.path.join(OUT, "mvp1_assembly.step"), "TamilDict_MVP1")
 say(f"STEP written ({time.time()-T0:.0f}s)")
+
+''', 'checks', 'exec'))
 
 # ------------------------------------------------------------------ 7. renders
 def style(c, b):
@@ -363,5 +373,5 @@ sc2.shoot(os.path.join(REN, "mvp1_cutaway.png"), [70, cut_y + 230, 60], (0, cut_
 sc2.shoot(os.path.join(REN, "mvp1_cutaway_detail.png"), [40, cut_y + 120, 15], (18, cut_y, -6), up=(0, 0, 1), zoom=1.0)
 say(f"cutaway written at y={cut_y:.1f} ({time.time()-T0:.0f}s)")
 
-with open(os.path.join(OUT, "mvp1_report.txt"), "w") as f:
+with open(os.path.join(OUT, "mvp1_report.txt" if not RENDER_ONLY else "mvp1_render_log.txt"), "w") as f:
     f.write("\n".join(log) + "\n")

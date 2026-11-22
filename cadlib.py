@@ -1,6 +1,7 @@
 """Shared helpers for the TamilDict assemblies: coloured STEP import, height map, interference
 check, assembly STEP export and VTK offscreen rendering. Run with the CadQuery venv."""
 import math
+import os
 
 import cadquery as cq
 import vtk
@@ -158,15 +159,18 @@ class Scene:
         self.win = vtk.vtkRenderWindow()
         self.win.SetOffScreenRendering(1)
         self.win.SetSize(*size)
-        self.win.SetMultiSamples(8)
         self.win.AddRenderer(self.ren)
-        self.ren.UseFXAAOn()
-        try:
-            self.ren.UseSSAOOn()
-            self.ren.SetSSAORadius(4.0)
-            self.ren.SetSSAOKernelSize(128)
-        except AttributeError:
-            pass
+        if os.environ.get("CAD_SIMPLE_GL"):          # headless Mesa in CI: no MSAA / FXAA / SSAO
+            self.win.SetMultiSamples(0)
+        else:
+            self.win.SetMultiSamples(8)
+            self.ren.UseFXAAOn()
+            try:
+                self.ren.UseSSAOOn()
+                self.ren.SetSSAORadius(4.0)
+                self.ren.SetSSAOKernelSize(128)
+            except AttributeError:
+                pass
         kit = vtk.vtkLightKit()
         kit.SetKeyLightIntensity(0.95)
         kit.AddLightsToRenderer(self.ren)
