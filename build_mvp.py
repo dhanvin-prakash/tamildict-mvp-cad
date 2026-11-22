@@ -365,6 +365,10 @@ sc.offset("inside", dz=30)
 sc.offset("module", dz=62)
 sc.offset("screws", dz=-22)
 sc.shoot(os.path.join(REN, "mvp1_exploded.png"), [0.78 * 520, 0.32 * 520, 0.55 * 520], (0, 0, 22), zoom=1.0)
+for g, (dx, dz) in {"module": (0, 0), "inside": (-55, -45), "screws": (-80, -75), "case": (-110, -100)}.items():
+    for a in sc.groups.get(g, []):
+        a.SetPosition(dx, 0, dz)
+sc.shoot(os.path.join(REN, "mvp1_exploded_board_side.png"), [330, 120, -430], (-45, 0, -45), zoom=1.0)
 say(f"renders written ({time.time()-T0:.0f}s)")
 
 cut_y = (keys["VOL-"] + BY0) / 2 + 8                   # section through battery, P4 module and a key
